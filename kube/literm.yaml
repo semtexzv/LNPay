@@ -1,0 +1,101 @@
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: literm
+  annotations:
+    kapp.k14s.io/change-rule: "upsert after upserting lnpay/lnd"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: lnpay
+      name: literm
+  template:
+    metadata:
+      labels:
+        app: lnpay
+        name: literm
+    spec:
+      containers:
+        - name: literm
+          image: lightninglabs/lightning-terminal:v0.4.0-alpha
+          command: ["bash", "-c"]
+          args:
+            - >
+              litd
+              --uipassword=${ADMIN_PASSWORD}
+              --insecure-httplisten=0.0.0.0:8080
+              --lnd-mode=remote
+              --remote.lnd.network=${NETWORK}
+              --remote.lnd.rpcserver=lnd:10009
+              --remote.lnd.tlscertpath=/tls/tls_cert
+              --remote.lnd.macaroonpath=/macaroons/admin/admin.macaroon
+              --faraday.network=${NETWORK}
+              --faraday.lnd.rpcserver=lnd:10009
+              --faraday.lnd.macaroondir=/macaroons/admin/
+              --faraday.lnd.tlscertpath=/tls/tls_cert
+              --loop.network=${NETWORK}
+              --loop.lnd.host=lnd:10009
+              --loop.lnd.macaroondir=/macaroons/admin/
+              --loop.lnd.tlspath=/tls/tls_cert
+              --pool.network=${NETWORK}
+              --pool.lnd.host=lnd:10009
+              --pool.lnd.macaroondir=/macaroons/admin/
+              --pool.lnd.tlspath=/tls/tls_cert
+          envFrom:
+            - configMapRef:
+                name: lnpay-config
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /tls
+              name: tls
+              readOnly: true
+            - mountPath: /macaroons/admin/
+              name: admin-macaroon
+              readOnly: true
+            - mountPath: /root/
+              name: literm-state-data
+      volumes:
+        - name: tls
+          secret:
+            secretName: lnd-secret
+        - name: literm-state-data
+          persistentVolumeClaim:
+            claimName: literm-state-pvc
+        - name: admin-macaroon
+          persistentVolumeClaim:
+            claimName: admin-macaroon
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: literm-state-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: literm
+  labels:
+    name: literm
+spec:
+  ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    name: literm

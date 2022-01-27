@@ -1,0 +1,35 @@
+apiVersion: kbld.k14s.io/v1alpha1
+kind: Sources
+sources:
+  - image: lnpay
+    path: ./backend
+    docker:
+      build:
+        rawOptions: [ "--network", "host" ]
+
+---
+
+apiVersion: kbld.k14s.io/v1alpha1
+kind: ImageDestinations
+destinations:
+  - image: lnpay
+    newImage: lnpay.azurecr.io/semtexzv/lnpay
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lnpay-config
+data:
+  STRIPE_PUB_KEY: "TODO"
+  STRIPE_SECRET_KEY: "TODO"
+
+  CB_API_KEY: "TODO"
+  CB_API_SECRET: "TODO"
+  CB_API_PHRASE: "TODO"
+
+  COINBASE_PRO_SANDBOX: "1"
+
+  LN_CURRENCY: tb
+  NETWORK: testnet
+  NETWORK_ARG: "--network=testnet"

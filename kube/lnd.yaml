@@ -1,0 +1,108 @@
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lnd
+  annotations:
+    kapp.k14s.io/change-group: "lnpay/lnd"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: lnpay
+      name: lnd
+  template:
+    metadata:
+      labels:
+        app: lnpay
+        name: lnd
+    spec:
+      containers:
+        - name: lnd
+          image: lightninglabs/lnd:v0.12.0-beta
+          args:
+            - --alias=${APP_URL}
+            - --tlskeypath=/tls/tls_key
+            - --tlscertpath=/tls/tls_cert
+            - --rpclisten=0.0.0.0:10009
+            - --bitcoin.active
+            - --bitcoin.${NETWORK}
+            - --bitcoin.node=neutrino
+            - --neutrino.connect=faucet.lightning.community
+            - --autopilot.active
+            - --autopilot.allocation=0.5
+            - --debuglevel=debug,BTCN=info
+            - --datadir=/state-data
+            - --logdir=/state-data/logs
+          ports:
+            - containerPort: 10009
+              protocol: TCP
+            - containerPort: 9735
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /tls
+              name: tls
+              readOnly: true
+            - mountPath: /macaroons/admin/
+              name: admin-macaroon
+            - mountPath: /state-data
+              name: state-data
+      volumes:
+        - name: tls
+          secret:
+            secretName: lnd-secret
+        - name: state-data
+          persistentVolumeClaim:
+            claimName: lnd-state-pvc
+        - name: admin-macaroon
+          persistentVolumeClaim:
+            claimName: admin-macaroon
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lnd-state-pvc
+  annotations:
+    kapp.k14s.io/change-group: "lnpay/lnd"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: lnd
+  labels:
+    name: lnd
+spec:
+  ports:
+    - port: 10009
+      protocol: TCP
+      targetPort: 10009
+  selector:
+    name: lnd
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: lnd-external
+  labels:
+    name: lnd-external
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 9735
+      protocol: TCP
+  selector:
+    name: lnd

@@ -1,0 +1,86 @@
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loop
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: lnpay
+      name: loop
+  template:
+    metadata:
+      labels:
+        app: lnpay
+        name: loop
+    spec:
+      containers:
+        - name: loop
+          image: loop
+          command: ["bash", "-c"]
+          args:
+            - >
+              loopd
+              --lnd.tlspath=/tls/tls_cert
+              --lnd.macaroonpath=/macaroons/admin/admin.macaroon
+              --lnd.host=lnd:10009
+              --rpclisten=0.0.0.0:11010
+              "${NETWORK_ARG}"
+              --debuglevel=debug
+          envFrom:
+            - configMapRef:
+                name: lnpay-config
+          ports:
+            - containerPort: 10009
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /tls
+              name: tls
+              readOnly: true
+            - mountPath: /macaroons/admin/
+              name: admin-macaroon
+              readOnly: true
+            - mountPath: /root/.loop
+              name: loop-state-data
+      volumes:
+        - name: tls
+          secret:
+            secretName: lnd-secret
+        - name: loop-state-data
+          persistentVolumeClaim:
+            claimName: loop-state-pvc
+        - name: admin-macaroon
+          persistentVolumeClaim:
+            claimName: admin-macaroon
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loop-state-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: loop
+  labels:
+    name: loop
+spec:
+  ports:
+    - port: 11010
+      protocol: TCP
+      targetPort: 11010
+  selector:
+    name: loop

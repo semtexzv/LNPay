@@ -1,0 +1,12 @@
+infra/.terraform
+infra/.terraform.lock.hcl
+infra/backend.tfvars
+
+frontend/dist
+frontend/node_modules
+
+/target
+vars.env
+
+backend/certs
+**/.idea/

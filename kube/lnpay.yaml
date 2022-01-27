@@ -1,0 +1,68 @@
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lnpay
+  annotations:
+    kapp.k14s.io/change-rule: "upsert after upserting lnpay/lnd"
+spec:
+  selector:
+    matchLabels:
+      app: lnpay
+      name: lnpay
+  template:
+    metadata:
+      labels:
+        app: lnpay
+        name: lnpay
+    spec:
+      containers:
+      - name: lnpay
+        image: lnpay
+        envFrom:
+          - configMapRef:
+              name: lnpay-config
+        env:
+          - name: LND_ADDRESS
+            value: lnd.default.svc.cluster.local:10009
+          - name: LND_ADMIN_MACAROON
+            value: /macaroons/admin/admin.macaroon
+          - name: LND_TLS_CERT
+            value: /tls/tls_cert
+          - name: LND_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: lnd-secret
+                key: password
+        volumeMounts:
+          - mountPath: /tls
+            name: tls
+            readOnly: true
+          - mountPath: /macaroons/admin/
+            name: admin-macaroon
+        ports:
+          - containerPort: 8080
+            protocol: TCP
+      volumes:
+        - name: tls
+          secret:
+            secretName: lnd-secret
+        - name: admin-macaroon
+          persistentVolumeClaim:
+            claimName: admin-macaroon
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: lnpay
+  labels:
+    name: lnpay
+spec:
+  ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    name: lnpay

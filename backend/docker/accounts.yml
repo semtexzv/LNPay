@@ -1,0 +1,9 @@
+masterPassword: 'password' # Default password unless defined in account
+defaultNetwork: 'simnet' # Default network unless defined in account
+accounts:
+  - name: 'Account 1'
+    serverUrl: 'http://lnd:10009'
+    #lndDir: '/root/.lnd'
+    macaroonPath: '/root/.lnd/data/chain/bitcoin/simnet/admin.macaroon'
+    certificatePath: '/root/.lnd/tls.cert'
+    #password: 'password'

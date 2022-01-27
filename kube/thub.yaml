@@ -1,0 +1,81 @@
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thub
+  annotations:
+    kapp.k14s.io/change-rule: "upsert after upserting lnpay/lnd"
+spec:
+  selector:
+    matchLabels:
+      app: lnpay
+      name: thub
+  template:
+    metadata:
+      labels:
+        app: lnpay
+        name: thub
+    spec:
+      containers:
+        - name: thub
+          image: apotdevin/thunderhub:v0.12.7
+          env:
+            - name: LOG_LEVEL
+              value: "silly"
+            - name: ACCOUNT_CONFIG_PATH
+              value: "/config/config.yaml"
+          volumeMounts:
+            - mountPath: /tls
+              name: tls
+              readOnly: true
+            - mountPath: /macaroons/admin/
+              name: admin-macaroon
+            - mountPath: /config
+              name: config
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+      volumes:
+        - name: tls
+          secret:
+            secretName: lnd-secret
+        - name: config
+          configMap:
+            name: thub-accounts-config
+        - name: admin-macaroon
+          persistentVolumeClaim:
+            claimName: admin-macaroon
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thub-accounts-config
+data:
+  config.yaml: |+
+    masterPassword: '${ADMIN_PASSWORD}' # Default password unless defined in account
+    defaultNetwork: '${NETWORK}' # Default network unless defined in account
+    accounts:
+      - name: 'Account 1'
+        serverUrl: 'lnd:10009'
+        certificatePath: '/tls/tls_cert'
+        macaroonPath: '/macaroons/admin/admin.macaroon'
+        password: '${ADMIN_PASSWORD}'
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: thub
+  labels:
+    name: thub
+spec:
+  ports:
+    - port: 3000
+      protocol: TCP
+      targetPort: 3000
+  selector:
+    name: thub

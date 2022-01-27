@@ -1,0 +1,29 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: lnd-custom-azurefile
+provisioner: kubernetes.io/azure-file
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0777
+  - uid=0
+  - gid=0
+  - mfsymlinks
+  - cache=strict
+  - actimeo=5
+parameters:
+  skuName: Standard_LRS
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: admin-macaroon
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: lnd-custom-azurefile
+  resources:
+    requests:
+      storage: 1Gi
